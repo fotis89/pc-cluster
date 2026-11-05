@@ -89,9 +89,32 @@ internal static class Placement
     public static int TaskbarRoom(RECT taskbar, int occupiedLeft, int margin) =>
         Math.Max(0, Math.Min(occupiedLeft, taskbar.Right) - taskbar.Left - 2 * margin);
 
-    /// <summary>Free space between the last taskbar button and the notification area, in physical px, after a margin on both sides.</summary>
-    public static int TaskbarGap(int occupiedRight, int trayLeft, int margin) =>
-        Math.Max(0, trayLeft - occupiedRight - 2 * margin);
+    /// <summary>Free space of a stretch of the taskbar row, in physical px, after a margin on both sides.</summary>
+    public static int TaskbarGap(int start, int end, int margin) =>
+        Math.Max(0, end - start - 2 * margin);
+
+    /// <summary>
+    /// Widest free stretch right of the first button: between buttons, or between the last one and the notification area.
+    /// With left-aligned icons Windows puts Widgets next to the tray, so the free stretch is before it, not at the tray.
+    /// Ties go to the rightmost. (0, 0) when there is none.
+    /// </summary>
+    public static (int Start, int End) LargestGap(IEnumerable<(int Left, int Right)> buttons, int? trayLeft)
+    {
+        var sorted = buttons.OrderBy(b => b.Left).ToList();
+        var best = (Start: 0, End: 0);
+        int edge = int.MinValue;
+        void Consider(int start, int end)
+        {
+            if (end - start >= best.End - best.Start) best = (start, end);
+        }
+        for (int i = 0; i < sorted.Count; i++)
+        {
+            if (i > 0 && sorted[i].Left > edge) Consider(edge, sorted[i].Left);
+            edge = Math.Max(edge, sorted[i].Right);
+        }
+        if (trayLeft is int tray && tray > edge) Consider(edge, tray);
+        return best;
+    }
 
     public static (int X, int Y) CornerPosition(RECT workArea, Corner corner, int width, int height, int margin)
     {

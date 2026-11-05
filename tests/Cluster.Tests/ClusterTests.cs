@@ -189,6 +189,14 @@ public class PlacementTests
         Assert.Equal(0, Placement.TaskbarGap(1990, 2000, 12));                // apps fill the row
     }
 
+    [Fact]
+    public void Largest_gap_skips_the_widgets_button_next_to_the_tray()
+    {
+        (int, int)[] buttons = [(0, 48), (52, 100), (104, 152), (2000, 2048)]; // Start, Search, an app, Widgets
+        Assert.Equal((152, 2000), Placement.LargestGap(buttons, 2060));
+        Assert.Equal((152, 2060), Placement.LargestGap(buttons[..3], 2060));  // no Widgets: gap runs to the tray
+    }
+
     [Theory]
     [InlineData(800, 0)]
     [InlineData(650, 1)]

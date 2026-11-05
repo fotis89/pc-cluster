@@ -93,10 +93,11 @@ internal sealed class TaskbarWindow : ClusterWindow
         var widths = Layouts.Select(View.MeasureWidth).ToArray();
         int fit = Placement.FirstFit(room, widths);
         int x = t.Bounds.Left + margin;
-        if (fit < 0 && buttons.Right is int right && buttons.TrayLeft is int trayLeft)
+        if (fit < 0)
         {
-            fit = Placement.FirstFit(Placement.TaskbarGap(right, trayLeft, margin) / scale, widths);
-            x = right + margin;
+            fit = Placement.FirstFit(Placement.TaskbarGap(buttons.GapStart, buttons.GapEnd, margin) / scale, widths);
+            // Anchored to the right end of the gap so a newly opened app's button lands left of the cluster, not under it.
+            if (fit >= 0) x = buttons.GapEnd - margin - (int)Math.Ceiling(widths[fit] * scale);
         }
         if (fit < 0) { SetShown(false, $"no room beside the taskbar buttons ({room:0} DIP left of them)"); return; }
         placeX = x;

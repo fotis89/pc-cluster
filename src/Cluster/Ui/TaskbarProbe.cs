@@ -10,9 +10,9 @@ namespace Cluster.Ui;
 internal sealed record TaskbarInfo(RECT Bounds, TaskbarButtons? Buttons, MonitorInfo Monitor, bool OnScreen);
 
 /// <param name="Left">Left edge of the leftmost button.</param>
-/// <param name="Right">Right edge of the rightmost button left of the tray, or null when the tray can't be located.</param>
-/// <param name="TrayLeft">Left edge of the notification area, or null when it can't be located.</param>
-internal sealed record TaskbarButtons(int Left, int? Right, int? TrayLeft);
+/// <param name="GapStart">Start of the widest free stretch right of the first button (between buttons, or between the last one and the tray).</param>
+/// <param name="GapEnd">End of that stretch; equal to <paramref name="GapStart"/> when there is none.</param>
+internal sealed record TaskbarButtons(int Left, int GapStart, int GapEnd);
 
 /// <summary>
 /// Watches the taskbar of the chosen screen on a background thread and reports where its buttons start,
@@ -138,16 +138,16 @@ internal sealed class TaskbarProbe : IDisposable
                 if (!t.IsEmpty && t.Left > bounds.Left && t.Left < bounds.Right) trayLeft = (int)Math.Round(t.Left);
             }
 
-            int min = int.MaxValue, max = int.MinValue;
+            var rects = new List<(int Left, int Right)>();
             foreach (AutomationElement button in root.FindAll(TreeScope.Descendants, Buttons))
             {
                 var r = button.Current.BoundingRectangle;
                 if (r.IsEmpty || r.Width <= 0 || r.Left < bounds.Left - 1 || r.Right > bounds.Right + 1) continue;
-                min = Math.Min(min, (int)Math.Round(r.Left));
-                if (trayLeft is int tl && r.Right <= tl + 1) max = Math.Max(max, (int)Math.Round(r.Right));
+                rects.Add(((int)Math.Round(r.Left), (int)Math.Round(r.Right)));
             }
-            if (min == int.MaxValue) return null;
-            return new TaskbarButtons(min, max == int.MinValue ? null : max, trayLeft);
+            if (rects.Count == 0) return null;
+            var (gapStart, gapEnd) = Placement.LargestGap(rects, trayLeft);
+            return new TaskbarButtons(rects.Min(r => r.Left), gapStart, gapEnd);
         }
         catch (Exception ex) when (ex is ElementNotAvailableException or COMException or InvalidOperationException)
         {
