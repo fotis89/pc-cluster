@@ -5,7 +5,7 @@ using Cluster.Model;
 namespace Cluster.Ui;
 
 /// <summary>
-/// Design B's 270° dial with the unused bottom cropped (Option A, <c>tq()</c> in slim-options.html).
+/// The flat Fluent 270° dial (design option A) with the unused bottom cropped.
 /// The face is built once into a frozen drawing; only the needle's RotateTransform changes, so WPF
 /// re-composes without calling OnRender again.
 /// </summary>
@@ -13,18 +13,22 @@ internal sealed class DialElement : FrameworkElement
 {
     public const double Size = 52;
     static readonly double R = Size / 2 - 1.5, C = Size / 2;
+    static readonly double TrackR = R - 3;
     public static readonly double CroppedHeight = Math.Ceiling(C + R * 0.72 + 3); // 47
 
-    static readonly Pen NeedlePen = Frozen(new Pen(Theme.Needle, 1.6) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round });
     static readonly Geometry FaceClip = Frozen(new RectangleGeometry(new Rect(0, 0, Size, CroppedHeight)));
 
+    readonly Palette palette;
     readonly Drawing face;
+    readonly Pen needlePen, hubPen;
     readonly RotateTransform rotation = new(GaugeSpec.StartDeg, C, C);
     readonly NeedleDamper damper = new();
 
     public DialElement(GaugeSpec spec)
     {
-        face = BuildFace(spec);
+        palette = Theme.Current;
+        face = BuildFace(spec, palette);
+        (needlePen, hubPen) = NeedlePens(palette);
         Width = Size;
         Height = CroppedHeight;
         SnapsToDevicePixels = false;
@@ -50,51 +54,64 @@ internal sealed class DialElement : FrameworkElement
     {
         dc.PushClip(FaceClip);
         dc.DrawDrawing(face);
-        DrawNeedle(dc, rotation);
+        DrawNeedle(dc, rotation, palette, needlePen, hubPen);
         dc.Pop();
     }
 
-    static void DrawNeedle(DrawingContext dc, Transform rotation)
+    static (Pen Needle, Pen Hub) NeedlePens(Palette p) => (
+        Frozen(new Pen(p.Accent, 1.8) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round }),
+        Frozen(new Pen(p.Accent, 1.4)));
+
+    static void DrawNeedle(DrawingContext dc, Transform rotation, Palette p, Pen needle, Pen hub)
     {
         dc.PushTransform(rotation);
-        dc.DrawLine(NeedlePen, new Point(C, C), new Point(C + R - 3, C));
+        dc.DrawLine(needle, new Point(C - 3, C), new Point(C + R - 4, C));
         dc.Pop();
-        dc.DrawEllipse(Theme.Hub, null, new Point(C, C), 2.2, 2.2);
+        dc.DrawEllipse(p.BarBackground, hub, new Point(C, C), 3, 3);
     }
 
-    public static Drawing BuildFace(GaugeSpec spec)
+    public static Drawing BuildFace(GaugeSpec spec, Palette p)
     {
         var group = new DrawingGroup();
         using (var dc = group.Open())
         {
             var center = new Point(C, C);
-            dc.DrawEllipse(Theme.Face, null, center, R, R);
-            dc.DrawEllipse(null, new Pen(Theme.Chrome, 1.2), center, R, R);
+            dc.DrawEllipse(p.DialFace, new Pen(p.DialRim, 1), center, R, R);
+
+            var track = new Pen(p.DialTrack, 2) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
+            dc.DrawGeometry(null, track, Arc(TrackR, 0, 1));
 
             foreach (var zone in spec.Zones)
-                dc.DrawGeometry(null, new Pen(zone.Level == Level.Red ? Theme.Red : Theme.Amber, 2.5), Arc(R - 2.5, zone.From, zone.To));
-
-            var major = new Pen(Theme.TickMajor, 1.1);
-            var minor = new Pen(Theme.TickMinor, 0.8);
-            for (int i = 0; i <= 10; i++)
             {
-                bool isMajor = i % 5 == 0;
-                double angle = GaugeSpec.Angle(i / 10.0);
-                dc.DrawLine(isMajor ? major : minor, Polar(R - 1, angle), Polar(R - (isMajor ? 6 : 4), angle));
+                var pen = new Pen(zone.Level == Level.Red ? p.Red : p.Amber, 2)
+                {
+                    EndLineCap = zone.To >= 1 ? PenLineCap.Round : PenLineCap.Flat,
+                };
+                dc.DrawGeometry(null, pen, Arc(TrackR, zone.From, zone.To));
+            }
+
+            var tick = new Pen(p.Tick, 1) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
+            for (int i = 0; i <= 4; i++)
+            {
+                double angle = GaugeSpec.Angle(i / 4.0);
+                dc.DrawLine(tick, Polar(R - 6, angle), Polar(R - 8.5, angle));
             }
         }
         group.Freeze();
         return group;
     }
 
-    /// <summary>A whole (uncropped) dial with the needle at <paramref name="position"/>, for the tray icon.</summary>
+    /// <summary>A whole (uncropped) dial with the needle at <paramref name="position"/>, for the tray icon. Always the fixed icon palette.</summary>
     public static Drawing BuildIcon(GaugeSpec spec, double position)
     {
+        var p = Theme.Icon;
+        var (needle, hub) = NeedlePens(p);
         var group = new DrawingGroup();
         using (var dc = group.Open())
         {
-            dc.DrawDrawing(BuildFace(spec));
-            DrawNeedle(dc, new RotateTransform(GaugeSpec.Angle(position), C, C));
+            dc.DrawEllipse(p.BarBackground, null, new Point(C, C), R, R);
+            dc.DrawDrawing(BuildFace(spec, p));
+            DrawNeedle(dc, new RotateTransform(GaugeSpec.Angle(position), C, C), p, needle, hub);
         }
         group.Freeze();
         return group;

@@ -25,6 +25,9 @@ internal sealed class TrayIcon : IDisposable
 
     public event Action? MenuRequested;
 
+    /// <summary>Windows' light/dark mode or accent colour may have changed (fires several times per change).</summary>
+    public event Action? ThemeChanged;
+
     public TrayIcon()
     {
         window = new HwndSource(new HwndSourceParameters("Cluster tray") { Width = 0, Height = 0, WindowStyle = 0 });
@@ -74,6 +77,11 @@ internal sealed class TrayIcon : IDisposable
         else if (msg == TaskbarCreated && TaskbarCreated != 0)
         {
             Add(); // Explorer restarted
+        }
+        else if (msg == User32.WM_DWMCOLORIZATIONCOLORCHANGED
+                 || (msg == User32.WM_SETTINGCHANGE && lParam != 0 && Marshal.PtrToStringUni(lParam) == "ImmersiveColorSet"))
+        {
+            ThemeChanged?.Invoke();
         }
         return 0;
     }

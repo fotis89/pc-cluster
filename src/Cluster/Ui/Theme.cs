@@ -4,29 +4,92 @@ using Cluster.Model;
 
 namespace Cluster.Ui;
 
-/// <summary>Colours and fonts from the Option A strip (slim-options.html). All brushes are frozen.</summary>
+/// <summary>One complete set of flat Fluent colours (design option A) for a dark or light taskbar. All brushes are frozen.</summary>
+internal sealed record Palette(
+    bool IsLight,
+    Color AccentColor,
+    Brush Ink,
+    Brush Muted,
+    Brush Accent,
+    Brush Amber,
+    Brush Red,
+    Brush Tick,
+    Brush DialFace,
+    Brush DialRim,
+    Brush DialTrack,
+    Brush BarBackground,
+    Brush BarEdge)
+{
+    /// <summary>The accent Windows 11 uses for its default blue, as shown on dark and on light surfaces.</summary>
+    public static readonly Color DefaultDarkAccent = Color.FromRgb(0x60, 0xCD, 0xFF);
+    public static readonly Color DefaultLightAccent = Color.FromRgb(0x00, 0x5F, 0xB8);
+
+    public static Palette Dark(Color? accent = null) => new(
+        IsLight: false,
+        AccentColor: accent ?? DefaultDarkAccent,
+        Ink: Solid(0xEE, 0xF1, 0xF5),
+        Muted: Solid(0x8F, 0xA3, 0xAB),
+        Accent: Solid(accent ?? DefaultDarkAccent),
+        Amber: Solid(0xFF, 0xB5, 0x47),
+        Red: Solid(0xFF, 0x5B, 0x4F),
+        Tick: Solid(0x6F, 0x78, 0x82),
+        DialFace: Tint(0xFF, 0.05),
+        DialRim: Tint(0xFF, 0.10),
+        DialTrack: Tint(0xFF, 0.12),
+        BarBackground: Solid(0x1C, 0x1F, 0x24),
+        BarEdge: Solid(0x2B, 0x2F, 0x36));
+
+    public static Palette Light(Color? accent = null) => new(
+        IsLight: true,
+        AccentColor: accent ?? DefaultLightAccent,
+        Ink: Solid(0x1B, 0x1F, 0x24),
+        Muted: Solid(0x5F, 0x68, 0x73),
+        Accent: Solid(accent ?? DefaultLightAccent),
+        Amber: Solid(0xB8, 0x6E, 0x00),
+        Red: Solid(0xC4, 0x2B, 0x1C),
+        Tick: Solid(0x9A, 0xA2, 0xAB),
+        DialFace: Tint(0x00, 0.04),
+        DialRim: Tint(0x00, 0.12),
+        DialTrack: Tint(0x00, 0.10),
+        BarBackground: Solid(0xF3, 0xF3, 0xF3),
+        BarEdge: Solid(0xD7, 0xDB, 0xE0));
+
+    static Brush Solid(byte r, byte g, byte b) => Solid(Color.FromRgb(r, g, b));
+
+    /// <summary>Same theme and accent; brushes are new instances each time, so record equality doesn't apply.</summary>
+    public bool Matches(Palette other) => IsLight == other.IsLight && AccentColor == other.AccentColor;
+
+    static Brush Solid(Color c) => Frozen(new SolidColorBrush(c));
+
+    static Brush Tint(byte grey, double alpha) => Frozen(new SolidColorBrush(Color.FromArgb((byte)Math.Round(alpha * 255), grey, grey, grey)));
+
+    static T Frozen<T>(T freezable) where T : Freezable
+    {
+        freezable.Freeze();
+        return freezable;
+    }
+}
+
+/// <summary>
+/// The palette in use. Views read it when they're built; the app swaps it with <see cref="Apply"/> and rebuilds
+/// the window when the Windows theme changes. Only touched on the UI thread.
+/// </summary>
 internal static class Theme
 {
-    public static readonly Brush Ink = Solid(0xEE, 0xF1, 0xF5);
-    public static readonly Brush Muted = Solid(0x8F, 0xA3, 0xAB);
-    public static readonly Brush Needle = Solid(0xFF, 0x6A, 0x2B);
-    public static readonly Brush Amber = Solid(0xFF, 0xB5, 0x47);
-    public static readonly Brush Red = Solid(0xFF, 0x5B, 0x4F);
-    public static readonly Brush Hub = Solid(0x5A, 0x61, 0x6B);
-    public static readonly Brush TickMajor = Solid(0xE4, 0xE8, 0xED);
-    public static readonly Brush TickMinor = Solid(0x7B, 0x85, 0x90);
-    public static readonly Brush BarEdge = Solid(0x2C, 0x40, 0x48);
+    public static Palette Current { get; private set; } = Palette.Dark();
 
-    public static readonly Brush BarBackground = Freeze(new LinearGradientBrush(
-        Color.FromRgb(0x1B, 0x2C, 0x33), Color.FromRgb(0x17, 0x27, 0x2D), new Point(0, 0), new Point(0, 1)));
+    /// <summary>The tray/app icon ignores the theme: it's a fixed dark dial that reads on either taskbar.</summary>
+    public static readonly Palette Icon = Palette.Dark();
 
-    public static readonly Brush Face = Freeze(new RadialGradientBrush(Color.FromRgb(0x22, 0x26, 0x2D), Color.FromRgb(0x07, 0x08, 0x0A))
-    {
-        Center = new Point(0.5, 0.8), GradientOrigin = new Point(0.5, 0.8), RadiusX = 0.8, RadiusY = 0.8,
-    });
+    public static void Apply(Palette palette) => Current = palette;
 
-    public static readonly Brush Chrome = Freeze(new LinearGradientBrush(
-        Color.FromRgb(0xA3, 0xAB, 0xB6), Color.FromRgb(0x2A, 0x2F, 0x36), new Point(0, 0), new Point(0, 1)));
+    public static Brush Ink => Current.Ink;
+    public static Brush Muted => Current.Muted;
+    public static Brush Needle => Current.Accent;
+    public static Brush Amber => Current.Amber;
+    public static Brush Red => Current.Red;
+    public static Brush BarBackground => Current.BarBackground;
+    public static Brush BarEdge => Current.BarEdge;
 
     public static readonly FontFamily TextFont = new("Segoe UI Variable Text, Segoe UI");
     public static readonly FontFamily DisplayFont = new("Segoe UI Variable Display, Segoe UI");
@@ -37,12 +100,4 @@ internal static class Theme
         Level.Red => Red,
         _ => Ink,
     };
-
-    static Brush Solid(byte r, byte g, byte b) => Freeze(new SolidColorBrush(Color.FromRgb(r, g, b)));
-
-    static T Freeze<T>(T freezable) where T : Freezable
-    {
-        freezable.Freeze();
-        return freezable;
-    }
 }

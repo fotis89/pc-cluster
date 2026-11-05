@@ -20,6 +20,8 @@ public sealed class AppSettings
     public bool ClickThrough { get; set; }
     public double Opacity { get; set; } = 0.85;
     public bool HideInFullScreen { get; set; } = true;
+    /// <summary>Needle in the Windows accent colour; off means the default Windows 11 blue.</summary>
+    public bool UseAccentColor { get; set; } = true;
 
     public const double MinOpacity = 0.3;
 

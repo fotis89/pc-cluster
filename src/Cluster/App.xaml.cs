@@ -20,6 +20,7 @@ public partial class App : Application, IClusterApp
     TaskbarProbe? probe;
     TaskbarInfo? lastTaskbar;
     Snapshot? last;
+    DispatcherTimer? themeDebounce;
     bool exiting;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -53,10 +54,24 @@ public partial class App : Application, IClusterApp
 
         store = new SettingsStore(SettingsStore.DefaultPath);
         settings = store.Load();
+        Theme.Apply(SystemTheme.Read(settings.UseAccentColor));
         try { Autostart.Refresh(); } catch (Exception ex) { Log.Write("Autostart", ex); }
+
+        themeDebounce = new DispatcherTimer(TimeSpan.FromMilliseconds(300), DispatcherPriority.Background, (_, _) =>
+        {
+            themeDebounce!.Stop();
+            RefreshTheme();
+        }, Dispatcher);
+        themeDebounce.Stop();
 
         tray = new TrayIcon();
         tray.MenuRequested += ShowMenu;
+        tray.ThemeChanged += () =>
+        {
+            // Windows sends a burst of messages per change; act once it settles.
+            themeDebounce.Stop();
+            themeDebounce.Start();
+        };
         OpenWindow();
 
         sampler = new Sampler();
@@ -70,6 +85,16 @@ public partial class App : Application, IClusterApp
         last = snapshot;
         window?.OnSnapshot(snapshot);
         tray?.SetTip(Readouts.TrayTip(snapshot.Readings));
+    }
+
+    /// <summary>Re-reads the Windows theme and rebuilds the window if the palette changed.</summary>
+    void RefreshTheme()
+    {
+        if (exiting) return;
+        var palette = SystemTheme.Read(settings.UseAccentColor);
+        if (palette.Matches(Theme.Current)) return;
+        Theme.Apply(palette);
+        OpenWindow();
     }
 
     /// <summary>Each mode or placement change builds a fresh window; the old one gives back its app-bar space first.</summary>
@@ -173,6 +198,12 @@ public partial class App : Application, IClusterApp
             .Item("Hide when a full-screen app is active (overlay)", () => Change(s => s.HideInFullScreen = !s.HideInFullScreen),
                 check: settings.HideInFullScreen, enabled: overlay)
             .Separator()
+            .Item("Use Windows accent colour", () =>
+            {
+                settings.UseAccentColor = !settings.UseAccentColor;
+                store.Save(settings);
+                RefreshTheme();
+            }, check: settings.UseAccentColor)
             .Item("Start at sign-in", () =>
             {
                 try { Autostart.Set(!autostart); } catch (Exception ex) { Log.Write("Autostart", ex); }
@@ -191,6 +222,7 @@ public partial class App : Application, IClusterApp
     protected override void OnExit(ExitEventArgs e)
     {
         exiting = true;
+        themeDebounce?.Stop();
         sampler?.Dispose();
         probe?.Dispose();
         window?.Close();

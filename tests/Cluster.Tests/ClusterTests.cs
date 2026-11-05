@@ -252,6 +252,18 @@ public class SettingsTests : IDisposable
         Assert.Equal(DisplayMode.Taskbar, s.Mode);
     }
 
+    [Fact]
+    public void Accent_colour_is_on_by_default_and_old_files_keep_it_on()
+    {
+        Assert.True(new AppSettings().UseAccentColor);
+        Directory.CreateDirectory(dir);
+        System.IO.File.WriteAllText(File, """{ "Mode": "Docked" }""");
+        Assert.True(new SettingsStore(File).Load().UseAccentColor);
+
+        new SettingsStore(File).Save(new AppSettings { UseAccentColor = false });
+        Assert.False(new SettingsStore(File).Load().UseAccentColor);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(dir)) Directory.Delete(dir, true);

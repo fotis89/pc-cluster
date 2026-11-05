@@ -8,6 +8,7 @@ speedometer for network, in your taskbar, docked at a screen edge, or floating i
 Local-only, no admin rights, no install.
 
 <img src="docs/taskbar.png" alt="Cluster in the taskbar: CPU, RAM, disk and network gauges left of the Start button" width="850">
+<img src="docs/taskbar-light.png" alt="The same gauges on a light taskbar, with the Windows accent colour" width="850">
 
 ## Features
 
@@ -30,6 +31,8 @@ Local-only, no admin rights, no install.
     so maximised windows never cover it.
   - **Overlay**: a floating panel in a corner or at top/bottom centre, like a game overlay. Adjustable opacity,
     optional click-through, turns solid under the mouse and hides while a full-screen app is in front.
+- **Follows your Windows theme**: light or dark (from the taskbar setting) and your accent colour for the
+  needles, updated live when you change them. Turn off "Use Windows accent colour" in the menu for the default blue.
 - **Sharp at any scale**: vector-drawn and per-monitor DPI aware.
 - **Start at sign-in**: one click in the menu.
 
@@ -47,7 +50,7 @@ Local-only, no admin rights, no install.
    from the release: `Get-FileHash .\Cluster-vX.Y.Z-win-x64.zip`.
 
 **Using it:** right-click the gauges (or the tray icon) for the menu: mode, screen, edge or corner, opacity,
-click-through, start at sign-in and exit. In click-through overlay mode, use the tray icon.
+click-through, accent colour, start at sign-in and exit. In click-through overlay mode, use the tray icon.
 
 **Uninstall:** turn off "Start at sign-in", choose Exit, then delete `Cluster.exe` and `%LOCALAPPDATA%\Cluster`.
 
@@ -80,7 +83,6 @@ Sensors are read once a second on a background thread; the UI only redraws while
   change the taskbar enough to throw its placement off.
 - **Tested on Windows 11 25H2** with screens at 100% and 125% scale, landscape and portrait. Windows 10 should work
   but isn't tested.
-- **Light taskbar themes**: the gauges are designed for a dark taskbar.
 - **x64 only** for now.
 - **Unsigned download**, so SmartScreen warns on first run (see above).
 - Not included: GPU, temperatures (they need a kernel driver), history graphs.

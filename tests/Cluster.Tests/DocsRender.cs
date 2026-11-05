@@ -25,6 +25,7 @@ public class DocsRender
         [new GradientStop(Color.FromRgb(0x23, 0x3A, 0x5E), 0), new GradientStop(Color.FromRgb(0x4B, 0x6C, 0x8F), 0.55), new GradientStop(Color.FromRgb(0x9B, 0x7E, 0x9A), 1)],
         new Point(0, 0), new Point(1, 1)));
     static readonly Brush TaskbarBrush = Frozen(new SolidColorBrush(Color.FromRgb(0x1C, 0x20, 0x26)));
+    static readonly Brush LightTaskbarBrush = Frozen(new SolidColorBrush(Color.FromRgb(0xEE, 0xEF, 0xF2)));
     static readonly Brush IconBrush = Frozen(new SolidColorBrush(Color.FromRgb(0x5A, 0x6B, 0x7C)));
 
     [Fact]
@@ -37,6 +38,9 @@ public class DocsRender
         Sta(() =>
         {
             Save(Taskbar(1700), Path.Combine(docs, "taskbar.png"));
+            Theme.Apply(Palette.Light());
+            try { Save(Taskbar(1700, light: true), Path.Combine(docs, "taskbar-light.png")); }
+            finally { Theme.Apply(Palette.Dark()); }
             Save(Docked(1700), Path.Combine(docs, "docked.png"));
             Save(Overlay(1100, 110), Path.Combine(docs, "overlay.png"));
             Save(Column(), Path.Combine(docs, "column.png"));
@@ -47,10 +51,10 @@ public class DocsRender
     // --- scenes ---------------------------------------------------------------------------------
 
     /// <summary>"In the taskbar": the cluster in the empty row left of a centred Start button.</summary>
-    static FrameworkElement Taskbar(double width)
+    static FrameworkElement Taskbar(double width, bool light = false)
     {
         var canvas = new Canvas { Width = width, Height = 48 + 80, Background = Wallpaper };
-        var bar = TaskbarRow(width, out _);
+        var bar = TaskbarRow(width, out _, light);
         Canvas.SetTop(bar, 80);
         canvas.Children.Add(bar);
         var view = Live(new ClusterView(vertical: false, compact: true));
@@ -107,9 +111,9 @@ public class DocsRender
         return grid;
     }
 
-    static FrameworkElement TaskbarRow(double width, out double startLeft)
+    static FrameworkElement TaskbarRow(double width, out double startLeft, bool light = false)
     {
-        var bar = new Canvas { Width = width, Height = 48, Background = TaskbarBrush };
+        var bar = new Canvas { Width = width, Height = 48, Background = light ? LightTaskbarBrush : TaskbarBrush };
         const int icons = 7, size = 24, pitch = 44;
         startLeft = width / 2 - icons * pitch / 2.0;
         for (int i = 0; i < icons; i++)
@@ -119,7 +123,7 @@ public class DocsRender
             Canvas.SetTop(icon, 12);
             bar.Children.Add(icon);
         }
-        var clock = new TextBlock { Text = "12:00\n1/1/2026", FontSize = 11, Foreground = Brushes.White, TextAlignment = TextAlignment.Right, FontFamily = Theme.TextFont };
+        var clock = new TextBlock { Text = "12:00\n1/1/2026", FontSize = 11, Foreground = light ? Brushes.Black : Brushes.White, TextAlignment = TextAlignment.Right, FontFamily = Theme.TextFont };
         Canvas.SetLeft(clock, width - 80);
         Canvas.SetTop(clock, 8);
         bar.Children.Add(clock);
