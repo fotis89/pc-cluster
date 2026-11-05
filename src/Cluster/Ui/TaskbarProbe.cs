@@ -5,20 +5,25 @@ using Cluster.Settings;
 
 namespace Cluster.Ui;
 
-/// <param name="OccupiedLeft">Left edge of the leftmost taskbar button (Start, Search, Widgets or an app), physical px.</param>
+/// <param name="Buttons">Extent of the taskbar buttons (Start, Search, Widgets, apps), physical px.</param>
 /// <param name="OnScreen">False while an auto-hide taskbar is slid away.</param>
-internal sealed record TaskbarInfo(RECT Bounds, int? OccupiedLeft, MonitorInfo Monitor, bool OnScreen);
+internal sealed record TaskbarInfo(RECT Bounds, TaskbarButtons? Buttons, MonitorInfo Monitor, bool OnScreen);
+
+/// <param name="Left">Left edge of the leftmost button.</param>
+/// <param name="Right">Right edge of the rightmost button left of the tray, or null when the tray can't be located.</param>
+/// <param name="TrayLeft">Left edge of the notification area, or null when it can't be located.</param>
+internal sealed record TaskbarButtons(int Left, int? Right, int? TrayLeft);
 
 /// <summary>
 /// Watches the taskbar of the chosen screen on a background thread and reports where its buttons start,
-/// so the cluster can sit in the empty space on its left. Windows 11's taskbar buttons are XAML without
+/// so the cluster can sit in the empty space beside them. Windows 11's taskbar buttons are XAML without
 /// their own windows, so positions come from UI Automation (read-only). The UIA query only runs when the
-/// taskbar's child windows change, and at least every 5 s.
+/// taskbar's child windows change, and at least every 2 s.
 /// </summary>
 internal sealed class TaskbarProbe : IDisposable
 {
     const int PeriodMs = 1000;
-    static readonly TimeSpan ForceEvery = TimeSpan.FromSeconds(5);
+    static readonly TimeSpan ForceEvery = TimeSpan.FromSeconds(2);
 
     readonly ManualResetEventSlim stop = new();
     readonly Thread thread;
@@ -49,7 +54,7 @@ internal sealed class TaskbarProbe : IDisposable
         TaskbarInfo? last = null;
         bool first = true;
         long signature = 0;
-        int? occupied = null;
+        TaskbarButtons? buttons = null;
         var lastQuery = DateTime.MinValue;
 
         do
@@ -69,9 +74,9 @@ internal sealed class TaskbarProbe : IDisposable
                         force = false;
                         signature = sig;
                         lastQuery = now;
-                        occupied = OccupiedLeft(taskbar, bounds);
+                        buttons = Measure(taskbar, bounds);
                     }
-                    info = new TaskbarInfo(bounds, occupied, monitor, monitor.Bounds.Covers(bounds));
+                    info = new TaskbarInfo(bounds, buttons, monitor, monitor.Bounds.Covers(bounds));
                 }
                 if (first || info != last)
                 {
@@ -113,19 +118,36 @@ internal sealed class TaskbarProbe : IDisposable
 
     static readonly Condition Buttons = new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button);
 
-    internal static int? OccupiedLeft(nint taskbar, RECT bounds)
+    internal static int? OccupiedLeft(nint taskbar, RECT bounds) => Measure(taskbar, bounds)?.Left;
+
+    // The notification area is a window ("TrayNotifyWnd"; "ClockButton" on secondary taskbars) around its XAML buttons.
+    static readonly Condition TrayArea = new OrCondition(
+        new PropertyCondition(AutomationElement.ClassNameProperty, "TrayNotifyWnd"),
+        new PropertyCondition(AutomationElement.ClassNameProperty, "ClockButton"));
+
+    internal static TaskbarButtons? Measure(nint taskbar, RECT bounds)
     {
         try
         {
             var root = AutomationElement.FromHandle(taskbar);
-            int min = int.MaxValue;
+            int? trayLeft = null;
+            var tray = root.FindFirst(TreeScope.Descendants, TrayArea);
+            if (tray is not null)
+            {
+                var t = tray.Current.BoundingRectangle;
+                if (!t.IsEmpty && t.Left > bounds.Left && t.Left < bounds.Right) trayLeft = (int)Math.Round(t.Left);
+            }
+
+            int min = int.MaxValue, max = int.MinValue;
             foreach (AutomationElement button in root.FindAll(TreeScope.Descendants, Buttons))
             {
                 var r = button.Current.BoundingRectangle;
                 if (r.IsEmpty || r.Width <= 0 || r.Left < bounds.Left - 1 || r.Right > bounds.Right + 1) continue;
                 min = Math.Min(min, (int)Math.Round(r.Left));
+                if (trayLeft is int tl && r.Right <= tl + 1) max = Math.Max(max, (int)Math.Round(r.Right));
             }
-            return min == int.MaxValue ? null : min;
+            if (min == int.MaxValue) return null;
+            return new TaskbarButtons(min, max == int.MinValue ? null : max, trayLeft);
         }
         catch (Exception ex) when (ex is ElementNotAvailableException or COMException or InvalidOperationException)
         {

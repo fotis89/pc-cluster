@@ -89,6 +89,10 @@ internal static class Placement
     public static int TaskbarRoom(RECT taskbar, int occupiedLeft, int margin) =>
         Math.Max(0, Math.Min(occupiedLeft, taskbar.Right) - taskbar.Left - 2 * margin);
 
+    /// <summary>Free space between the last taskbar button and the notification area, in physical px, after a margin on both sides.</summary>
+    public static int TaskbarGap(int occupiedRight, int trayLeft, int margin) =>
+        Math.Max(0, trayLeft - occupiedRight - 2 * margin);
+
     public static (int X, int Y) CornerPosition(RECT workArea, Corner corner, int width, int height, int margin)
     {
         int left = workArea.Left + margin, right = workArea.Right - margin - width;

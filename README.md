@@ -23,8 +23,9 @@ Local-only, no admin rights, no install.
 - **Printed redlines**: digits turn amber, then red (CPU and disk at 80% / 90%, RAM at 85% / 95%).
 - **Honest readings**: a sensor that can't be read shows "—", never a fake zero.
 - **Three display modes**, switchable from the right-click menu or the tray icon, on any screen:
-  - **In the taskbar** (default): sits in the empty space left of Start on a centred taskbar. Takes no desktop
-    space and never covers Start, app buttons or the tray; when apps fill the taskbar it drops gauges from the right.
+  - **In the taskbar** (default): sits in the empty space left of Start on a centred taskbar, or between your
+    app buttons and the tray when icons are left-aligned. Takes no desktop space and never covers Start, app
+    buttons or the tray; when apps fill the taskbar it drops gauges from the right.
   - **Docked bar**: a real Windows app bar on the top, bottom, left or right edge. Windows makes room for it,
     so maximised windows never cover it.
   - **Overlay**: a floating panel in a corner or at top/bottom centre, like a game overlay. Adjustable opacity,
@@ -74,9 +75,9 @@ Sensors are read once a second on a background thread; the UI only redraws while
 
 - **"In the taskbar" sits *over* the taskbar row; it isn't part of it.** Windows has no supported way to add
   content to the Windows 11 taskbar, and Cluster won't inject into Explorer. It's a small topmost window placed in
-  the empty space, using UI Automation to see where Start and the buttons are. It needs a centred taskbar (with
-  left-aligned icons there's no room; use another mode), and a future Windows update could change the taskbar enough
-  to throw its placement off.
+  the empty space, using UI Automation to see where Start and the buttons are. It sits left of Start on a centred
+  taskbar, or between the last app button and the tray when icons are left-aligned. A future Windows update could
+  change the taskbar enough to throw its placement off.
 - **Tested on Windows 11 25H2** with screens at 100% and 125% scale, landscape and portrait. Windows 10 should work
   but isn't tested.
 - **Light taskbar themes**: the gauges are designed for a dark taskbar.

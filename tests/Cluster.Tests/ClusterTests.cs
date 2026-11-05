@@ -182,6 +182,13 @@ public class PlacementTests
         Assert.Equal(400 - 30, Placement.TaskbarRoom(second, 2960, 15));
     }
 
+    [Fact]
+    public void Taskbar_gap_is_the_space_between_the_last_button_and_the_tray()
+    {
+        Assert.Equal(2000 - 1200 - 24, Placement.TaskbarGap(1200, 2000, 12)); // left-aligned taskbar
+        Assert.Equal(0, Placement.TaskbarGap(1990, 2000, 12));                // apps fill the row
+    }
+
     [Theory]
     [InlineData(800, 0)]
     [InlineData(650, 1)]
