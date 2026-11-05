@@ -10,7 +10,8 @@ namespace Cluster.Ui;
 
 /// <summary>
 /// "In the taskbar" mode: a transparent topmost window laid over the empty part of the taskbar row, left of
-/// the first taskbar button (Start, or Widgets/Search when shown). Nothing is injected into Explorer and the
+/// the first taskbar button (Start, or Widgets/Search when shown), or, when there is no room there (icons aligned
+/// left, or many apps), in the gap between the last button and the tray. Nothing is injected into Explorer and the
 /// taskbar isn't reparented; the window just sits above it and re-asserts its z-order when the taskbar comes forward.
 /// Start, app buttons and the tray are never covered: when room shrinks it drops gauges from the right.
 /// </summary>
@@ -27,6 +28,7 @@ internal sealed class TaskbarWindow : ClusterWindow
     nint foregroundHook;
     TaskbarInfo? taskbar;
     bool fullScreen, shown = true;
+    int placeX;
     string? lastReason;
 
     public TaskbarWindow(AppSettings settings, IClusterApp app) : base(settings, app)
@@ -83,13 +85,22 @@ internal sealed class TaskbarWindow : ClusterWindow
         if (t is null) { SetShown(false, "no taskbar on the chosen screen"); return; }
         if (!t.OnScreen) { SetShown(false, "taskbar is auto-hidden"); return; }
         if (fullScreen) { SetShown(false, null); return; }
-        if (t.OccupiedLeft is not int occupied) { SetShown(false, "taskbar buttons can't be read"); return; }
+        if (t.Buttons is not { } buttons) { SetShown(false, "taskbar buttons can't be read"); return; }
 
         double scale = t.Monitor.Scale;
-        double room = Placement.TaskbarRoom(t.Bounds, occupied, t.Monitor.Px(EdgeGap)) / scale;
+        int margin = t.Monitor.Px(EdgeGap);
+        double room = Placement.TaskbarRoom(t.Bounds, buttons.Left, margin) / scale;
         var widths = Layouts.Select(View.MeasureWidth).ToArray();
         int fit = Placement.FirstFit(room, widths);
-        if (fit < 0) { SetShown(false, $"no room left of the taskbar buttons ({room:0} DIP)"); return; }
+        int x = t.Bounds.Left + margin;
+        if (fit < 0)
+        {
+            fit = Placement.FirstFit(Placement.TaskbarGap(buttons.GapStart, buttons.GapEnd, margin) / scale, widths);
+            // Anchored to the right end of the gap so a newly opened app's button lands left of the cluster, not under it.
+            if (fit >= 0) x = buttons.GapEnd - margin - (int)Math.Ceiling(widths[fit] * scale);
+        }
+        if (fit < 0) { SetShown(false, $"no room beside the taskbar buttons ({room:0} DIP left of them)"); return; }
+        placeX = x;
 
         View.SetParts(Layouts[fit]);
         Height = t.Bounds.Height / scale;
@@ -100,7 +111,7 @@ internal sealed class TaskbarWindow : ClusterWindow
     void Place()
     {
         if (taskbar is not { } t || Hwnd == 0) return;
-        User32.SetWindowPos(Hwnd, User32.HWND_TOPMOST, t.Bounds.Left + t.Monitor.Px(EdgeGap), t.Bounds.Top, 0, 0,
+        User32.SetWindowPos(Hwnd, User32.HWND_TOPMOST, placeX, t.Bounds.Top, 0, 0,
             User32.SWP_NOSIZE | User32.SWP_NOACTIVATE);
     }
 
