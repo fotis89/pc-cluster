@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Test
+        run: dotnet test Cluster.slnx --nologo
+
+      - name: Publish and zip
+        shell: pwsh
+        run: |
+          $tag = '${{ github.ref_name }}'
+          $prefix, $suffix = $tag.TrimStart('v') -split '-', 2
+          dotnet publish src/Cluster -c Release -o out --nologo -p:VersionPrefix=$prefix -p:VersionSuffix=$suffix
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $zip = "Cluster-$tag-win-x64.zip"
+          Compress-Archive -Path out/Cluster.exe -DestinationPath $zip
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $zip" | Set-Content "$zip.sha256" -Encoding ascii -NoNewline
+          "ZIP=$zip" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "PRERELEASE=$([bool]$suffix)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Create GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $notes = @"
+          Download ``$env:ZIP``, unzip and run ``Cluster.exe``. No install and no .NET needed (Windows 10/11 x64).
+
+          The exe is not code-signed, so Windows SmartScreen may say "Windows protected your PC": choose **More info → Run anyway**.
+          Check the download against ``$env:ZIP.sha256`` with ``Get-FileHash $env:ZIP``.
+          "@
+          $flags = @()
+          if ($env:PRERELEASE -eq 'True') { $flags += '--prerelease' }
+          gh release create '${{ github.ref_name }}' $env:ZIP "$env:ZIP.sha256" --title "Cluster ${{ github.ref_name }}" --notes $notes --generate-notes --verify-tag @flags

@@ -1,0 +1,15 @@
+name: Feature request
+description: An idea for Cluster
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like Cluster to do?
+      description: The problem you're trying to solve, then the idea.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Anything you've tried instead?

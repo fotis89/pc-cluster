@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Test
+        run: dotnet test Cluster.slnx --nologo
+
+      - name: Publish (self-contained single file)
+        run: dotnet publish src/Cluster -c Release -o out --nologo
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Cluster-${{ github.sha }}-win-x64
+          path: out/Cluster.exe
+          retention-days: 7

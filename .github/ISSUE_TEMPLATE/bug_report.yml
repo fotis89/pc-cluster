@@ -1,0 +1,50 @@
+name: Bug report
+description: Something doesn't look or work right
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you saw, and what you expected instead. A screenshot helps a lot.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Right-click the cluster → Overlay
+        2. ...
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Display mode
+      options: [In the taskbar, Docked bar, Overlay]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Cluster version
+      description: Right-click Cluster.exe → Properties → Details → Product version.
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      description: Run `winver`, e.g. "Windows 11 25H2 (build 26200)".
+    validations:
+      required: true
+  - type: textarea
+    id: displays
+    attributes:
+      label: Screens
+      description: Resolution and scale of each screen, and where the taskbar is (e.g. "2560×1440 @100%, centred taskbar; 1440×2560 @125%").
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: Contents of `%LOCALAPPDATA%\Cluster\cluster.log`, if it exists. Remove anything you don't want to share.
+      render: text
